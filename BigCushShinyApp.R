@@ -8,9 +8,9 @@ library(gridExtra)
 
 SimFootwear= read_excel('/Users/labwork/R-shiny-BigCush/SimulatedFootwearData.xlsx')
 SimFootwear$Sex = factor(rep(sample(c('Female','Male'),
-                               100,
-                               replace = TRUE),
-                      15))
+                                    100,
+                                    replace = TRUE),
+                             15))
 #### change structure of some columns ####
 SimFootwear$Brand = factor(SimFootwear$Brand)
 SimFootwear$Shoe = factor(SimFootwear$Shoe)
@@ -86,10 +86,15 @@ ui = fluidPage(
                  selectInput(
                    inputId = 'brand_name',
                    label = "Brands",
-                   choices = brands_list)),
-             mainPanel(
-               plotOutput(outputId = 'satisfaction_scatter'))
-    )),
+                   choices = brands_list),
+                 selectInput(
+                   inputId = 'perception',
+                   label = "Perception Variable",
+                   choices = c("HeelCushion", "ForefootCushion", "Flexibility",
+                               "Transition", "Overall"))),
+               mainPanel(
+                 plotOutput(outputId = 'satisfaction_scatter'))
+             )),
     tabPanel("Mechanical Properties", fluid = TRUE,
              sidebarLayout(
                position = 'left',
@@ -139,15 +144,17 @@ ui = fluidPage(
 #generating plots based on criteria
 server = function(input,output,session) {
   
+  #need to add shoe name and title
   output$satisfaction_scatter = renderPlot({
     
-   # ggplot(SimFootwear[which(SimFootwear$Brand == input$brand_name),],
+    # ggplot(SimFootwear[which(SimFootwear$Brand == input$brand_name),],
     #       aes(x = factor(OverallSatisfaction))) + 
-     # geom_bar(stat = 'count') + 
-      #theme_minimal()
+    # geom_bar(stat = 'count') + 
+    #theme_minimal()
+    
     
     ggplot(SimFootwear[which(SimFootwear$Brand == input$brand_name),],
-           aes(x = Shoe, y = Overall, color = Shoe)) +
+           aes_string(x = 'Shoe', y = input$perception, color = 'Shoe')) +
       geom_count() + 
       scale_y_discrete(limits=c("Very Dissatisfied",
                                 "Dissatisfied",
@@ -158,10 +165,13 @@ server = function(input,output,session) {
                                 "Very Satisfied"))+
       scale_color_manual(values = c('red', 'blue', 'black',
                                     'red', 'blue')) +
-      plot_theme
+      ggtitle(input$perception) + 
+      plot_theme + theme(axis.text.x = element_text(face = "bold", size = 12, color = "black"),
+                         axis.title.y = element_blank())
     
   })
   
+  #need to add shoe name and legend
   output$biomech_line = renderPlot({
     getVarName = function(input_var, joint) {
       varname = paste0(joint, '_', gsub(' ','_', input_var))
@@ -170,32 +180,36 @@ server = function(input,output,session) {
     
     hipvar = getVarName(input$biomech_var, 'Hip')
     kneevar = getVarName(input$biomech_var, 'Knee')
-     anklevar = getVarName(input$biomech_var, 'Ankle_RMF')
+    anklevar = getVarName(input$biomech_var, 'Ankle_RMF')
     
     hip_plot = ggplot(SimFootwear[which(SimFootwear$ID == input$subj_id),],
                       aes_string(x = 'Shoe', y = hipvar, color = 'Dim' )) +
       geom_line(aes(group = Dim))+
       geom_point() +
       scale_color_manual(values = c("black", "red", "blue"))+
-      plot_theme
+      labs(y = paste0('Hip ', input$biomech_var)) +
+      plot_theme + theme(axis.text.x = element_text(face = "bold", size = 12, color = "black"))
     
     knee_plot = ggplot(SimFootwear[which(SimFootwear$ID == input$subj_id),],
                        aes_string(x = 'Shoe', y = kneevar, color = 'Dim' )) +
       geom_line(aes(group = Dim))+
       geom_point() +
       scale_color_manual(values = c("black", "red", "blue"))+
-      plot_theme
+      labs(y = paste0('Knee ', input$biomech_var)) +
+      plot_theme + theme(axis.text.x = element_text(face = "bold", size = 12, color = "black"))
     
     ankle_plot = ggplot(SimFootwear[which(SimFootwear$ID == input$subj_id),],
                         aes_string(x = 'Shoe', y = anklevar, color = 'Dim' )) +
       geom_line(aes(group = Dim))+
       geom_point() +
       scale_color_manual(values = c("black", "red", "blue"))+
-      plot_theme
+      labs(y = paste0('Ankle ', input$biomech_var)) +
+      plot_theme + theme(axis.text.x = element_text(face = "bold", size = 12, color = "black"))
     
-    grid.arrange(hip_plot,knee_plot,ankle_plot, ncol = 1)
+    ggarrange(hip_plot, knee_plot, ankle_plot, ncol=1, nrow=3, common.legend = TRUE, legend="bottom")
     
   })
+  
   
   output$mech_violin = renderPlot({
     
@@ -203,21 +217,25 @@ server = function(input,output,session) {
            aes_string(x = "factor(1)",
                       y = input$mech_char)) +
       geom_violin(fill = 'blue', trim = FALSE) +
-      plot_theme
+      labs(title = input$mech_char) +
+      plot_theme + theme(axis.title.x = element_blank(),
+                         axis.title.y = element_blank())
   })
   
   output$subj_violin = renderPlot({
     ggplot(SimFootwear[!duplicated(factor(SimFootwear$ID)),],
-          aes_string(x="Sex",
-                     y = input$subj_char,
-              fill = "Sex")) +
+           aes_string(x="Sex",
+                      y = input$subj_char,
+                      fill = "Sex")) +
       geom_violin(trim = FALSE) +
       scale_fill_manual(values = c('red', 'blue'))+
-      theme_minimal() + theme(axis.title.x = element_blank(),
-                              axis.title.y = element_blank()
-                             )
- })
-    
+      labs(title = input$subj_char) +
+      plot_theme + theme(axis.title.y = element_blank(),
+                         axis.text.x = element_text(
+                           face = "bold", size = 12, color = "black")
+      )
+  })
+  
 }
 
 #runs the app - needed to generate the app
